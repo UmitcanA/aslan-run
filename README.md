@@ -1,10 +1,12 @@
 # Aslan Run
 
+**[▶ Play Aslan Run](https://umitcana.github.io/aslan-run/)**
+
 A fan-made, three-lane endless runner in yellow and red. Play it in the browser on a phone or a computer.
 
 - Swipe left or right to change lanes, swipe up to jump the hurdles, and swipe down to slide under the crossbars. On a keyboard, use the arrow keys.
 - Collect the gold stars and the power-ups: Magnet, Shield, 2x Stars and Lion sprint.
-- On an iPhone, open the page in Safari, tap Share, then Add to Home Screen.
+- Install it as an app: tap **Add to Home Screen** on the main menu. On Android it installs at once; on iPhone it shows the Safari steps (Share, then Add to Home Screen). The installed app opens full screen and plays offline.
 
 This is a fan-made game. It is not an official club product.
 
