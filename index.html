@@ -1,0 +1,1144 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
+<title>Aslan Run</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Aslan Run">
+<meta name="theme-color" content="#0b0609">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=VT323&display=swap">
+<style>
+/* Layout: a full-screen pitch drawn at full resolution, with pixel-art sprites standing in it. Menus are printed match tickets; the HUD is an LED scoreboard. */
+:root {
+  --night: #0b0609;
+  --paper: #efe6d2;
+  --ink: #17100f;
+  --yellow: #f2b415;
+  --red: #a5122e;
+  --led: #ffb81c;
+  --display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --body: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --mono: "VT323", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+body {
+  background: var(--night);
+  color: var(--paper);
+  font-family: var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+#game { position: fixed; inset: 0; overflow: hidden; touch-action: none; }
+#cv { display: block; image-rendering: crisp-edges; image-rendering: pixelated; }
+svg.ico { width: 30px; height: 30px; flex: none; }
+
+/* ---------- LED scoreboard ---------- */
+.board {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 50%; transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  display: flex; align-items: center; gap: 14px;
+  background: #090807;
+  border: 2px solid #2b2622;
+  padding: 4px 12px 5px;
+  pointer-events: none;
+}
+.cell { display: grid; line-height: 1; min-width: 0; }
+.lbl { font-weight: 700; font-size: 10px; letter-spacing: 0.18em; color: #8c8172; }
+.num {
+  font-family: var(--mono); font-size: 32px; color: var(--led);
+  text-shadow: 0 0 6px rgba(255, 184, 28, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.pus { display: flex; gap: 8px; }
+.pu { display: grid; gap: 2px; justify-items: center; color: var(--led); }
+.pu svg { width: 22px; height: 22px; }
+.pu i { display: block; height: 3px; width: 26px; background: #2b2622; position: relative; }
+.pu i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w, 100%); background: var(--led); }
+
+/* ---------- chant caption ---------- */
+.call {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 72px);
+  left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100% - 32px);
+  font-family: var(--display); font-size: clamp(28px, 8vw, 46px); line-height: 1.05;
+  color: var(--yellow); background: var(--red);
+  padding: 2px 16px 4px;
+  transform: skewX(-8deg);
+  opacity: 0; pointer-events: none;
+}
+.call.show { animation: call 2.2s ease-out both; }
+@keyframes call {
+  0% { opacity: 0; transform: skewX(-8deg) translateY(-10px) scale(1.15); }
+  8% { opacity: 1; transform: skewX(-8deg) translateY(0) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: skewX(-8deg) translateY(4px); }
+}
+
+/* ---------- ticket screens ---------- */
+.screen {
+  position: fixed; inset: 0; overflow-y: auto;
+  display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 16px) max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(9, 5, 8, 0.5);
+}
+.ticket {
+  --stub: 92px;
+  width: 100%; max-width: 390px;
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--stub);
+  color: var(--ink);
+  background:
+    radial-gradient(circle at calc(100% - var(--stub)) 0, transparent 11px, var(--paper) 11.5px) top / 100% 51% no-repeat,
+    radial-gradient(circle at calc(100% - var(--stub)) 100%, transparent 11px, var(--paper) 11.5px) bottom / 100% 51% no-repeat;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5));
+  transform: rotate(-1.2deg);
+  position: relative;
+}
+.main { padding: 0 18px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+/* A knitted scarf: yellow over red with a zigzag seam and knit columns. */
+.scarf {
+  margin: 0 -18px; height: 30px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.13) 0 1px, transparent 1px 5px),
+    linear-gradient(135deg, var(--yellow) 25%, transparent 25%) -7px 15px / 14px 14px repeat-x,
+    linear-gradient(225deg, var(--yellow) 25%, transparent 25%) -7px 15px / 14px 14px repeat-x,
+    linear-gradient(var(--yellow) 0 15px, var(--red) 15px);
+}
+.meta {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-weight: 700; font-size: 11px; letter-spacing: 0.16em; color: var(--red);
+  border-bottom: 1.5px solid var(--ink); padding-bottom: 6px;
+}
+h1, h2 { margin: 0; font-family: var(--display); font-weight: 400; text-transform: uppercase; text-wrap: balance; }
+h1 { font-size: clamp(54px, 17vw, 70px); line-height: 0.86; color: var(--red); }
+h1 span { color: var(--ink); }
+h2 { font-size: clamp(36px, 11vw, 46px); line-height: 0.9; color: var(--red); }
+.since { margin: 0; font-weight: 600; font-size: 13px; letter-spacing: 0.22em; }
+.controls {
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0;
+  border-top: 1px dashed rgba(23, 16, 15, 0.4); padding-top: 8px;
+  font-size: 16px; font-weight: 500;
+}
+.controls dt { font-family: var(--display); font-size: 16px; color: var(--red); }
+.controls dd { margin: 0; }
+.powers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.powers li { display: flex; gap: 8px; align-items: center; min-width: 0; color: var(--red); }
+.powers div { color: var(--ink); line-height: 1.05; min-width: 0; }
+.powers b { display: block; font-weight: 700; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.powers span { font-size: 13px; opacity: 0.8; }
+.fine { margin: 0; font-size: 11px; opacity: 0.6; }
+.stub {
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 26px 6px 22px;
+  border-left: 2px dashed rgba(23, 16, 15, 0.35);
+  text-align: center;
+}
+.stub-label { font-weight: 700; font-size: 11px; letter-spacing: 0.16em; }
+.stub-val { font-family: var(--display); font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.seat { writing-mode: vertical-rl; transform: rotate(180deg); font-weight: 700; font-size: 12px; letter-spacing: 0.24em; opacity: 0.7; }
+.stamp {
+  width: 74px; aspect-ratio: 1; padding: 0;
+  font-family: var(--display); font-size: 24px; line-height: 1;
+  background: var(--red); color: var(--paper);
+  border: 0; outline: 2px solid var(--red); outline-offset: 3px;
+  transform: rotate(-5deg);
+  cursor: pointer; touch-action: manipulation;
+}
+#againBtn { font-size: 17px; }
+.stamp:active { background: #7a0c21; }
+.stamp:focus-visible { outline-color: var(--ink); }
+.headline { display: flex; align-items: center; gap: 14px; }
+.redcard { width: 34px; height: 48px; flex: none; background: #d4142f; border-radius: 3px; transform: rotate(10deg); box-shadow: 2px 3px 0 var(--ink); }
+.results { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; margin: 0; font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; border-top: 1px dashed rgba(23, 16, 15, 0.4); padding-top: 8px; }
+.results dd { margin: 0; text-align: right; font-weight: 700; }
+.results .big { font-family: var(--display); font-size: 38px; line-height: 1; color: var(--red); font-weight: 400; }
+.record {
+  position: absolute; right: 8px; top: 46%;
+  width: calc(var(--stub) - 16px); text-align: center; box-sizing: border-box;
+  font-family: var(--display); font-size: 13px; line-height: 1.1; color: var(--red);
+  border: 2px solid var(--red); padding: 3px 2px;
+  transform: rotate(12deg); opacity: 0.85;
+}
+@media (max-height: 560px) {
+  .ticket { max-width: 600px; }
+  h1 { font-size: 46px; }
+  h1 br { display: none; }
+  .powers { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .powers span { display: none; }
+  .meta, .fine { display: none; }
+  .stub { padding: 18px 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .call.show { animation-duration: 2.2s; animation-name: callFade; }
+  @keyframes callFade { 0%, 100% { opacity: 0; } 10%, 80% { opacity: 1; } }
+}
+</style>
+
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-magnet" viewBox="0 0 30 30"><path d="M8 5v10a7 7 0 0 0 14 0V5" fill="none" stroke="currentColor" stroke-width="6"/><path d="M5 4h6v4H5zM19 4h6v4h-6z" fill="#efe6d2" stroke="currentColor" stroke-width="1"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 30 30"><path d="M15 3l10 3v8c0 7-5 11-10 13C10 25 5 21 5 14V6z" fill="currentColor"/><path d="M15 3l10 3v8c0 7-5 11-10 13z" fill="#f2b415"/></symbol>
+  <symbol id="i-double" viewBox="0 0 30 30"><path d="M15 2l3.6 7.6 8.2 1-6 5.7 1.5 8.2L15 20.6 7.7 24.5l1.5-8.2-6-5.7 8.2-1z" fill="currentColor"/><text x="15" y="18.5" text-anchor="middle" font-family="Anton, Impact, sans-serif" font-size="9" fill="#efe6d2">2X</text></symbol>
+  <symbol id="i-sprint" viewBox="0 0 30 30"><ellipse cx="15" cy="20" rx="7" ry="6" fill="currentColor"/><circle cx="6.5" cy="12" r="3" fill="currentColor"/><circle cx="11.5" cy="6.5" r="3" fill="currentColor"/><circle cx="18.5" cy="6.5" r="3" fill="currentColor"/><circle cx="23.5" cy="12" r="3" fill="currentColor"/></symbol>
+</svg>
+
+<div id="game"><canvas id="cv" aria-label="Aslan Run game view"></canvas></div>
+
+<div class="board" id="hud" hidden>
+  <div class="cell"><span class="lbl">MESAFE</span><span class="num" id="dist">0</span></div>
+  <div class="cell"><span class="lbl">YILDIZ</span><span class="num" id="coins">0</span></div>
+  <div class="pus">
+    <div class="pu" id="pu-magnet" hidden><svg class="ico"><use href="#i-magnet"/></svg><i></i></div>
+    <div class="pu" id="pu-shield" hidden><svg class="ico"><use href="#i-shield"/></svg><i></i></div>
+    <div class="pu" id="pu-double" hidden><svg class="ico"><use href="#i-double"/></svg><i></i></div>
+    <div class="pu" id="pu-sprint" hidden><svg class="ico"><use href="#i-sprint"/></svg><i></i></div>
+  </div>
+</div>
+<div class="call" id="call" aria-live="polite"></div>
+
+<div class="screen" id="menu">
+  <article class="ticket">
+    <div class="main">
+      <div class="scarf"></div>
+      <div class="meta"><span>MAÇ BİLETİ</span><span>KAPI 7 · GÜNEY TRİBÜN</span></div>
+      <h1>Aslan<br><span>Run</span></h1>
+      <p class="since">SARI-KIRMIZI · EST. 1905</p>
+      <dl class="controls">
+        <dt>← →</dt><dd>Swipe to change lane</dd>
+        <dt>↑</dt><dd>Jump the hurdles</dd>
+        <dt>↓</dt><dd>Slide under the crossbars</dd>
+      </dl>
+      <ul class="powers">
+        <li><svg class="ico"><use href="#i-magnet"/></svg><div><b>Magnet</b><span>Stars fly to you, 8 s</span></div></li>
+        <li><svg class="ico"><use href="#i-shield"/></svg><div><b>Shield</b><span>Takes one hit</span></div></li>
+        <li><svg class="ico"><use href="#i-double"/></svg><div><b>2x Stars</b><span>Each star counts 2, 10 s</span></div></li>
+        <li><svg class="ico"><use href="#i-sprint"/></svg><div><b>Lion sprint</b><span>Fast and unstoppable, 5 s</span></div></li>
+      </ul>
+      <p class="fine">Ad boards block a whole lane. Bump one from the side and you stumble; bump again within 3 s and it's a red card. Keyboard: arrow keys. Sounds: CC0 crowd recordings from Freesound, CC0 interface sounds by Kenney. Fan-made game, not an official club product.</p>
+    </div>
+    <div class="stub">
+      <div><div class="stub-label">EN İYİ</div><div class="stub-val" id="bestMenu">0</div></div>
+      <div class="seat">SIRA 19 · KOLTUK 05</div>
+      <button class="stamp" id="startBtn" type="button">KOŞ!</button>
+    </div>
+  </article>
+</div>
+
+<div class="screen" id="over" hidden>
+  <article class="ticket">
+    <div class="main">
+      <div class="scarf"></div>
+      <div class="meta"><span>MAÇ SONU</span><span>FULL TIME</span></div>
+      <div class="headline"><div class="redcard"></div><h2>Kırmızı kart</h2></div>
+      <dl class="results">
+        <dt>Mesafe</dt><dd id="finalDist">0 m</dd>
+        <dt>Yıldız ×10</dt><dd id="finalCoins">0</dd>
+        <dt>Skor</dt><dd class="big" id="finalScore">0</dd>
+      </dl>
+    </div>
+    <div class="stub">
+      <div><div class="stub-label">EN İYİ</div><div class="stub-val" id="finalBest">0</div></div>
+      <button class="stamp" id="againBtn" type="button">TEKRAR</button>
+    </div>
+    <div class="record" id="newBest" hidden>YENİ REKOR</div>
+  </article>
+</div>
+
+<div class="screen" id="pause" hidden>
+  <article class="ticket">
+    <div class="main">
+      <div class="scarf"></div>
+      <h2>Devre arası</h2>
+      <p class="since">HALF-TIME · THE CROWD WAITS</p>
+    </div>
+    <div class="stub"><button class="stamp" id="resumeBtn" type="button">DEVAM</button></div>
+  </article>
+</div>
+
+<script>
+(() => {
+  const TAU = Math.PI * 2;
+  const cv = document.getElementById('cv');
+  const mctx = cv.getContext('2d');
+  const sc = document.createElement('canvas');
+  const sctx = sc.getContext('2d');
+  let ctx = mctx;
+  const $ = id => document.getElementById(id);
+
+  // World units are meters. The runner stays at z = 0; the pitch moves.
+  // The world is drawn at full screen resolution. Only the artwork is pixel art: sprites are 16 art pixels per meter.
+  const LANE = 2.2, ROAD_HALF = 3.7, CAM_BACK = 4.5, FAR = 95, SEG = 4, G = 30, ART = 16;
+  const DIM = {
+    crate: { w: 1.5, h: 1.0, d: 0.5 },
+    bar:   { w: 1.9, h: 1.6, d: 0.3 },
+    wall:  { w: 1.8, h: 2.4, d: 7.0 },
+  };
+  // Forgiveness: hitboxes smaller than the art, a late-input save window, an input buffer, and a stumble on side bumps.
+  const EASE = { hitShrink: 0.12, hitDepth: 0.15, hurdleClear: 0.3, saveWindow: 0.12, buffer: 0.18, stumble: 3 };
+  const PU = {
+    magnet: { secs: 8, label: 'MIKNATIS!' },
+    shield: { secs: 0, label: 'KALKAN!' },
+    double: { secs: 10, label: '2X YILDIZ!' },
+    sprint: { secs: 5, label: 'ASLAN KOŞUSU!' },
+  };
+  const CALLS = ['CİM BOM BOM!', 'SARI-KIRMIZI!', 'ASLAN! ASLAN!', 'HADİ CİMBOM!', '1905!'];
+
+  const HEX = {
+    black: '#050505', night: '#0b0609', night2: '#170b12', stand: '#26121c', stand2: '#3b1d2a', ink: '#17100f',
+    yellow: '#f2b415', yellowD: '#b37d0c', red: '#b5162f', redD: '#6e0a1e', paper: '#efe6d2', paperD: '#b8ad96',
+    skin: '#c98a5e', skinD: '#8e5a3a', hair: '#3a2018', grassD: '#1d4523', grassB: '#2f6b34', grassA: '#3c8040',
+    line: '#e8ecdf', led: '#ffb81c', lamp: '#fff4d8', flare: '#f06a28', grey: '#6b6460', greyL: '#9c948a',
+    fog: '#16221a', boardT: '#2b2622', boardS: '#1b1816',
+  };
+  const RGB = {};
+  for (const k in HEX) RGB[k] = [parseInt(HEX[k].slice(1, 3), 16), parseInt(HEX[k].slice(3, 5), 16), parseInt(HEX[k].slice(5, 7), 16)];
+  const FOG = RGB.fog;
+
+  let W = 0, H = 0, F = 1, HZ = 0, camH = 3, P = 3, SW = 0, SH = 0, SHZ = 0, U0 = 1;
+  let state = 'menu';
+  let dist = 0, speed = 9, speedMul = 1, runT = 0, playT = 0, coins = 0, best = 0;
+  let lane = 0, fromLane = 0, px = 0, py = 0, vy = 0, slideT = 0, fastFall = false, camX = 0, animPh = 0;
+  let jumpBuf = 0, stumbleT = 0, wobble = 0;
+  let shake = 0, crashT = 0, flash = 0, flashC = RGB.red;
+  let magnetT = 0, doubleT = 0, sprintT = 0, shield = false, graceT = 0;
+  let surge = 0, chantAmp = 0, chantEnd = 0, nextChant = 8, milestone = 0, bestCalled = false, lastRoar = -9;
+  let objs = [], coinList = [], pus = [], decor = [], parts = [];
+  let stand = null, fans = [[], [], [], []], aisles = [], lights = [], flares = [];
+  let nextRow = 0, prevSafe = 0, lastHudDist = -1;
+
+  try { best = +localStorage.getItem('aslanRunBest') || 0; } catch (e) {}
+  $('bestMenu').textContent = best.toLocaleString();
+
+  // ---------- helpers ----------
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function fogAt(z) { const t = (z - 15) / (FAR - 15); return t <= 0 ? 0 : Math.min(0.9, t * t * 0.8 + t * 0.2); }
+  function col(c, t = 0, a = 1) {
+    const r = (c[0] + (FOG[0] - c[0]) * t) | 0, g = (c[1] + (FOG[1] - c[1]) * t) | 0, b = (c[2] + (FOG[2] - c[2]) * t) | 0;
+    return a === 1 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${a})`;
+  }
+  function project(x, y, z) {
+    const s = F / (z + CAM_BACK);
+    return [W / 2 + (x - camX) * s, HZ + (camH - y) * s, s];
+  }
+  const ZMIN = -CAM_BACK + 0.6;
+  function path(pts) {
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const p = project(pts[i][0], pts[i][1], pts[i][2]);
+      i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+    }
+    ctx.closePath();
+  }
+  function quad(pts, fill, edge, lw) {
+    path(pts);
+    ctx.fillStyle = fill; ctx.fill();
+    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = lw || 1; ctx.stroke(); }
+  }
+  function seeded(n) { return () => { n = (n * 16807) % 2147483647; return (n - 1) / 2147483646; }; }
+
+  // ---------- 3x5 pixel font ----------
+  const FONT = {
+    A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111',
+    F: '111100110100100', G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010',
+    K: '101101110101101', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010',
+    P: '110101110100100', R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111',
+    V: '101101101101010', W: '101101111111101', X: '101101010101101', Y: '101101010010010', Z: '111001010100111',
+    0: '111101101101111', 1: '010110010010111', 2: '110001010100111', 3: '110001010001110', 4: '101101111001001',
+    5: '111100110001110', 6: '011100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001110',
+    '.': '000000000000010', '·': '000000010000000', '-': '000000111000000', '!': '010010010000010', '*': '101010111010101', ' ': '000000000000000',
+  };
+  function norm(s) {
+    return s.replace(/İ/g, 'I').replace(/ı/g, 'I').replace(/Ş/g, 'S').replace(/ş/g, 'S').replace(/Ç/g, 'C').replace(/ç/g, 'C')
+      .replace(/Ğ/g, 'G').replace(/ğ/g, 'G').replace(/Ü/g, 'U').replace(/ü/g, 'U').replace(/Ö/g, 'O').replace(/ö/g, 'O').toUpperCase();
+  }
+  const tw = (s, k = 1) => norm(s).length * 4 * k - k;
+  function ptext(s, x, y, fill, k = 1, center = false) {
+    s = norm(s);
+    let cx = Math.round(center ? x - tw(s, k) / 2 : x); const cy = Math.round(y);
+    ctx.fillStyle = fill;
+    for (const ch of s) {
+      const g = FONT[ch];
+      if (g) for (let i = 0; i < 15; i++) if (g[i] === '1') ctx.fillRect(cx + (i % 3) * k, cy + ((i / 3) | 0) * k, k, k);
+      cx += 4 * k;
+    }
+  }
+
+  // ---------- pixel-art sprites ----------
+  const CH = {
+    h: 'hair', s: 'skin', S: 'skinD', y: 'yellow', Y: 'yellowD', r: 'red', R: 'redD', p: 'paper', P: 'paperD',
+    k: 'ink', g: 'greyL', G: 'grey', b: 'black', L: 'led', o: 'flare',
+  };
+  function makeSprite(rows, outline = true) {
+    const h = rows.length, w = rows[0].length, c = document.createElement('canvas');
+    c.width = w + 2; c.height = h + 2;
+    const x = c.getContext('2d');
+    const filled = (i, j) => j >= 0 && j < h && i >= 0 && i < w && rows[j][i] !== '.';
+    for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) {
+      if (filled(i, j)) { x.fillStyle = HEX[CH[rows[j][i]]]; x.fillRect(i + 1, j + 1, 1, 1); }
+      else if (outline && (filled(i - 1, j) || filled(i + 1, j) || filled(i, j - 1) || filled(i, j + 1))) { x.fillStyle = HEX.ink; x.fillRect(i + 1, j + 1, 1, 1); }
+    }
+    return c;
+  }
+  function gridSprite(w, h, fn) {
+    const g = Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => fn(x, y) || '.'));
+    return { g, done: () => makeSprite(g.map(r => r.join(''))) };
+  }
+  function stamp(g, text, x0, y0, c) {
+    let cx = x0;
+    for (const ch of norm(text)) {
+      const f = FONT[ch];
+      if (f) for (let i = 0; i < 15; i++) if (f[i] === '1') { const yy = y0 + ((i / 3) | 0), xx = cx + (i % 3); if (g[yy] && g[yy][xx] !== undefined) g[yy][xx] = c; }
+      cx += 4;
+    }
+  }
+  // Far sprites fade toward the fog color in 5 cached steps.
+  function fogged(spr, t) {
+    const step = Math.min(4, Math.round(t * 5));
+    if (!step) return spr;
+    spr._fog = spr._fog || [];
+    if (!spr._fog[step]) {
+      const c = document.createElement('canvas'); c.width = spr.width; c.height = spr.height;
+      const x = c.getContext('2d'); x.drawImage(spr, 0, 0);
+      x.globalCompositeOperation = 'source-atop';
+      x.fillStyle = `rgba(${FOG[0]},${FOG[1]},${FOG[2]},${step / 5})`; x.fillRect(0, 0, c.width, c.height);
+      spr._fog[step] = c;
+    }
+    return spr._fog[step];
+  }
+  // Draw a sprite standing in the world: its bottom center at (x, y, z).
+  // A sprite that has passed the runner fades out over 1.5 m, so it never balloons in front of the camera and pops.
+  const passFade = z => (z >= 0 ? 1 : clamp(1 + z / 1.5, 0, 1));
+  function billboard(spr, x, y, z, sx = 1) {
+    const a = passFade(z);
+    if (a <= 0 || z + CAM_BACK < 0.7) return;
+    const p = project(x, y, z), u = p[2] / ART;
+    const w = Math.max(1, Math.round(spr.width * u * sx)), h = Math.max(1, Math.round(spr.height * u));
+    ctx.globalAlpha = a;
+    ctx.drawImage(fogged(spr, fogAt(z)), Math.round(p[0] - w / 2), Math.round(p[1] - h), w, h);
+    ctx.globalAlpha = 1;
+  }
+
+  // The runner, seen from behind: halved yellow and red shirt, striped scarf. 16 x 24 art pixels.
+  function runnerFrame(pose, f) {
+    const g = Array.from({ length: 24 }, () => Array(16).fill('.'));
+    const put = (x, y, w, h, c) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (j >= 0 && j < 24 && i >= 0 && i < 16) g[j][i] = c; };
+    const tail = f % 2;
+    if (pose === 'slide') {
+      put(5, 9, 6, 6, 'h'); put(4, 11, 1, 2, 's'); put(11, 11, 1, 2, 's');
+      put(5, 15, 2, 1, 'y'); put(7, 15, 2, 1, 'r'); put(9, 15, 2, 1, 'y');
+      put(4, 16, 4, 4, 'y'); put(8, 16, 4, 4, 'r'); put(6, 16, 4, 1, 'p'); put(4, 19, 4, 1, 'Y'); put(8, 19, 4, 1, 'R');
+      put(1, 17, 3, 2, 's'); put(12, 17, 3, 2, 's');
+      put(4, 20, 8, 2, 'p'); put(3, 22, 3, 2, 'k'); put(10, 22, 3, 2, 'k');
+      put(11, 16, 1, 1, 'r'); put(12, 16 + tail, 1, 1, 'y'); put(13, 17, 1, 1, 'r');
+      return g.map(r => r.join(''));
+    }
+    put(5, 1, 6, 6, 'h'); put(4, 3, 1, 2, 's'); put(11, 3, 1, 2, 's');
+    put(5, 7, 2, 1, 'y'); put(7, 7, 2, 1, 'r'); put(9, 7, 2, 1, 'y');
+    put(4, 8, 4, 7, 'y'); put(8, 8, 4, 7, 'r'); put(6, 8, 4, 1, 'p'); put(4, 14, 4, 1, 'Y'); put(8, 14, 4, 1, 'R');
+    put(11, 8, 1, 1, 'r'); put(12, 8 + tail, 1, 1, 'y'); put(13, 9 + tail, 1, 1, 'r'); put(14, 10, 1, 1, 'y');
+    put(4, 15, 8, 3, 'p'); put(4, 17, 8, 1, 'P');
+    const arm = (x, up, c) => {
+      if (pose === 'air') { put(x, 5, 2, 2, 's'); put(x, 7, 2, 2, c); return; }
+      const y0 = up ? 8 : 9; put(x, y0, 2, 2, c); put(x, y0 + 2, 2, up ? 2 : 3, 's');
+    };
+    const leg = (x, up) => {
+      if (!up) { put(x, 18, 2, 1, 's'); put(x, 19, 2, 3, 'r'); put(x, 20, 2, 1, 'y'); put(x, 22, 2, 2, 'k'); }
+      else { put(x, 18, 2, 2, 'r'); put(x, 18, 2, 1, 'y'); put(x, 20, 2, 1, 'k'); put(x, 21, 2, 1, 'g'); }
+    };
+    if (pose === 'air') { arm(2, true, 'y'); arm(12, true, 'r'); leg(5, true); leg(9, true); }
+    else { arm(2, f === 2, 'y'); arm(12, f === 0, 'r'); leg(5, f === 0); leg(9, f === 2); }
+    return g.map(r => r.join(''));
+  }
+  const RUN = [0, 1, 2, 3].map(f => makeSprite(runnerFrame('run', f)));
+  const AIR = makeSprite(runnerFrame('air', 0));
+  const SLIDE = [0, 1].map(f => makeSprite(runnerFrame('slide', f)));
+  const STAR = makeSprite(['...y...', '..yyy..', 'yyyyyyy', '.yyyyY.', '..yyY..', '.yY.yY.', 'yY...yY']);
+  // A training hurdle: white posts and a striped yellow and red board. About 1.6 m wide, 1 m tall.
+  const HURDLE = gridSprite(24, 15, (x, y) => {
+    if (y >= 1 && y <= 5) return y === 5 ? (Math.floor((x + y) / 3) % 2 ? 'R' : 'Y') : (Math.floor((x + y) / 3) % 2 ? 'r' : 'y');
+    if (y === 14 && (x <= 3 || x >= 20)) return 'G';
+    if (x === 1 || x === 21) return 'p';
+    if (x === 2 || x === 22) return 'P';
+  }).done();
+  // A goal frame to slide under: white posts and crossbar, about 1.9 m wide and 1.6 m tall.
+  const CROSSBAR = gridSprite(30, 26, (x, y) => {
+    if (y <= 5) return y >= 4 ? 'P' : 'p';
+    if (y === 25 && (x <= 2 || x >= 27)) return 'G';
+    if (x <= 1 || x >= 28) return x === 1 || x === 29 ? 'P' : 'p';
+  }).done();
+  // The front of a pitch-side LED board: red top band and amber LED text.
+  const WALLTEX = ['1905', 'ASLAN'].map(txt => {
+    const s = gridSprite(29, 38, (x, y) => (y <= 3 ? 'r' : y === 4 ? 'R' : x === 0 || x === 28 ? 'G' : 'b'));
+    stamp(s.g, txt, Math.round((29 - tw(txt)) / 2), 16, 'L');
+    for (let x = 3; x < 26; x += 3) s.g[33][x] = 'L';
+    return makeSprite(s.g.map(r => r.join('')), false);
+  });
+  const CONE = makeSprite(['...o...', '..ooo..', '..ppp..', '.ooooo.', '.ooooo.', 'ooooooo']);
+  const BALL = makeSprite(['.pppp.', 'ppkppp', 'pkkkpp', 'ppkppP', '.pPPP.']);
+  const FLAGS = ['y', 'r'].map(c => gridSprite(10, 24, (x, y) => {
+    if (x === 0) return 'g';
+    if (y <= 5 && x <= 8 - Math.abs(y - 2.5) * 1.4) return c;
+  }).done());
+  const MARKS = {};
+  function markSprite(m) {
+    if (MARKS[m]) return MARKS[m];
+    const txt = m + 'M', w = tw(txt) + 4;
+    const s = gridSprite(w, 13, (x, y) => (y <= 8 ? (y === 0 ? 'r' : 'b') : x === 2 || x === w - 3 ? 'G' : null));
+    stamp(s.g, txt, 2, 2, 'L');
+    return (MARKS[m] = s.done());
+  }
+  const ICONS = {
+    magnet: ['y...y', 'r...r', 'r...r', 'r...r', '.rrr.'],
+    shield: ['yyrrr', 'yyrrr', 'yyrrr', '.yrr.', '..r..'],
+    double: ['rr..r.r', '..r.r.r', '.r...r.', 'r...r.r', 'rrr.r.r'],
+    sprint: ['.r.r.', 'r...r', '.rrr.', 'rrrrr', '.rrr.'],
+  };
+  const TOKENS = {};
+  for (const k in ICONS) {
+    const rows = [];
+    for (let y = 0; y < 11; y++) {
+      const r = [];
+      for (let x = 0; x < 11; x++) {
+        const d = Math.hypot(x - 5, y - 5);
+        r.push(d > 5.3 ? '.' : d > 4.1 ? (x < 5 || (x === 5 && y < 5) ? 'y' : 'r') : 'p');
+      }
+      rows.push(r);
+    }
+    const ic = ICONS[k], ox = Math.floor((11 - ic[0].length) / 2);
+    ic.forEach((line, j) => { for (let i = 0; i < line.length; i++) if (line[i] !== '.') rows[3 + j][ox + i] = line[i]; });
+    TOKENS[k] = makeSprite(rows.map(r => r.join('')));
+  }
+
+  // ---------- sounds (CC0 recordings; synthesized blips only as a fallback) ----------
+  const SND = {
+    whistle: 'sfx/whistle.mp3', cheer: 'sfx/cheer.mp3', sing: 'sfx/sing.mp3', goal: 'sfx/goal.mp3',
+    oehh: 'sfx/oehh.mp3', huuu: 'sfx/huuu.mp3', bed: 'sfx/crowd.mp3',
+    jump: 'sfx/jump.ogg', slide: 'sfx/slide.ogg', lane: 'sfx/lane.ogg', star: 'sfx/star.ogg',
+    power: 'sfx/power.ogg', bump: 'sfx/bump.ogg', click: 'sfx/click.ogg',
+  };
+  const raw = {}, buf = {};
+  let ac = null, master = null, bedGain = null, bedSrc = null, bedLevel = -1;
+  for (const k in SND) {
+    fetch(SND[k]).then(r => (r.ok ? r.arrayBuffer() : null)).then(a => { if (a) { raw[k] = a; if (ac) decode(k); } }).catch(() => {});
+  }
+  function decode(k) {
+    const a = raw[k]; if (!a) return; raw[k] = null;
+    try {
+      const p = ac.decodeAudioData(a, b => { buf[k] = b; if (k === 'bed') startBed(); }, () => {});
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+  function audioOn() {
+    if (!ac) {
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; return; }
+      master = ac.createGain(); master.gain.value = 0.8; master.connect(ac.destination);
+      bedGain = ac.createGain(); bedGain.gain.value = 0; bedGain.connect(master);
+      for (const k in raw) decode(k);
+    }
+    if (ac.state === 'suspended') ac.resume();
+  }
+  function startBed() {
+    if (bedSrc || !buf.bed || !ac) return;
+    bedSrc = ac.createBufferSource(); bedSrc.buffer = buf.bed; bedSrc.loop = true;
+    bedSrc.loopStart = 0.5; bedSrc.loopEnd = buf.bed.duration - 0.5;
+    bedSrc.connect(bedGain); bedSrc.start(0, 0.5);
+  }
+  function bed(level) {
+    if (!ac || Math.abs(level - bedLevel) < 0.01) return;
+    bedLevel = level; bedGain.gain.setTargetAtTime(level, ac.currentTime, 0.6);
+  }
+  function play(k, o = {}) {
+    if (!ac || !buf[k]) return false;
+    const b = buf[k], s = ac.createBufferSource(), g = ac.createGain();
+    s.buffer = b; s.playbackRate.value = o.rate || 1;
+    const t = ac.currentTime + (o.at || 0), vol = o.vol == null ? 1 : o.vol;
+    const off = clamp(o.off || 0, 0, Math.max(0, b.duration - 0.2));
+    const dur = o.dur ? Math.min(o.dur, b.duration - off) : 0;
+    if (o.fade) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + o.fade); }
+    else g.gain.setValueAtTime(vol, t);
+    if (dur) { g.gain.setValueAtTime(vol, t + Math.max(o.fade || 0, dur - 0.5)); g.gain.linearRampToValueAtTime(0.0001, t + dur); }
+    s.connect(g); g.connect(master);
+    if (dur) s.start(t, off, dur); else s.start(t, off);
+    return true;
+  }
+  function blip(freq, dur, type, vol, mul) {
+    if (!ac) return;
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(freq * mul, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sfx = {
+    jump: () => play('jump', { vol: 0.4 }) || blip(300, 0.13, 'square', 0.025, 2),
+    slide: () => play('slide', { vol: 0.4 }) || blip(180, 0.12, 'triangle', 0.03, 0.6),
+    lane: () => play('lane', { vol: 0.3, rate: 0.9 + Math.random() * 0.2 }) || blip(420, 0.05, 'triangle', 0.025, 1.3),
+    star: () => play('star', { vol: 0.25, rate: 0.95 + (coins % 5) * 0.05 }) || blip(880, 0.08, 'square', 0.02, 1.5),
+    power: () => play('power', { vol: 0.5 }) || blip(520, 0.25, 'square', 0.035, 2),
+    bump: () => play('bump', { vol: 0.55 }) || blip(90, 0.18, 'square', 0.05, 0.5),
+    click: () => play('click', { vol: 0.4 }),
+  };
+  function whistle(twice) {
+    if (!play('whistle', { vol: 0.5 })) blip(2600, 0.3, 'sine', 0.04, 1);
+    if (twice) play('whistle', { vol: 0.5, at: 0.32, dur: 0.9 });
+  }
+  // A short, soft crowd swell. At most one every 6 seconds, so the crowd never screams over the game.
+  function roar(str) {
+    surge = Math.max(surge, str);
+    if (!buf.cheer || runT - lastRoar < 6) return;
+    lastRoar = runT;
+    play('cheer', { off: Math.random() * (buf.cheer.duration - 6), dur: 1.8 + 1.0 * str, vol: 0.12 + 0.18 * str, fade: 0.25 });
+  }
+  function call(text) {
+    const el = $('call'); el.textContent = text;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+  function chant() {
+    call(CALLS[Math.random() * CALLS.length | 0]);
+    const len = buf.sing ? Math.min(7, buf.sing.duration) : 5;
+    chantEnd = runT + len;
+    if (buf.sing) play('sing', { vol: 0.35, fade: 0.8, dur: len });
+  }
+
+  // ---------- setup ----------
+  function resize() {
+    const vw = innerWidth || document.documentElement.clientWidth, vh = innerHeight || document.documentElement.clientHeight;
+    if (vw < 10 || vh < 10) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.round(vw * dpr); H = Math.round(vh * dpr);
+    cv.width = W; cv.height = H;
+    cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
+    F = Math.min(W * 0.3, H * 0.42) * CAM_BACK / LANE;
+    camH = clamp(0.5 * H * CAM_BACK / F, 2.6, 9);
+    // The stands are a pixel-art backdrop: drawn small, then scaled up sharp. Its art pixel matches the runner's.
+    U0 = F / CAM_BACK / ART;
+    P = Math.max(2, Math.round(H / 280));
+    SHZ = Math.round((H * 0.9 - camH * F / CAM_BACK) / P);
+    HZ = SHZ * P;
+    SW = Math.ceil(W / P) + 2; SH = Math.ceil(H / P);
+    sc.width = SW; sc.height = SHZ + 1;
+    mctx.imageSmoothingEnabled = false; sctx.imageSmoothingEnabled = false;
+    buildStands();
+  }
+  function buildStands() {
+    const rnd = seeded(1905);
+    const tiers = [
+      { top: Math.round(SHZ - SH * 0.3), bot: Math.round(SHZ - SH * 0.185) },
+      { top: Math.round(SHZ - SH * 0.16), bot: SHZ - 7 },
+    ];
+    stand = { tiers, roofY: Math.round(SHZ - SH * 0.33) };
+    fans = [[], [], [], []]; aisles = []; lights = []; flares = [];
+    const pats = ['mix', 'mix', 'half', 'stripe', 'stripe', 'solidY', 'solidR'];
+    for (const tier of tiers) {
+      let x = Math.round(-0.35 * SW);
+      while (x < 1.35 * SW) {
+        const w = Math.round((0.06 + rnd() * 0.15) * SW) + 4, pat = pats[rnd() * pats.length | 0];
+        let row = 0;
+        for (let y = tier.top + 2; y < tier.bot - 1; y += 2, row++) {
+          for (let fx = x + 1; fx < x + w - 1; fx += 2) {
+            if (rnd() < 0.05) continue;
+            const r = rnd(); let c;
+            if (pat === 'mix') c = r < 0.45 ? 0 : r < 0.9 ? 1 : r < 0.95 ? 2 : 3;
+            else if (pat === 'half') c = fx < x + w / 2 ? (r < 0.94 ? 0 : 3) : (r < 0.94 ? 1 : 3);
+            else if (pat === 'stripe') c = row % 2 ? (r < 0.94 ? 1 : 3) : (r < 0.94 ? 0 : 3);
+            else if (pat === 'solidY') c = r < 0.92 ? 0 : 3;
+            else c = r < 0.92 ? 1 : 3;
+            fans[c].push([fx, y, rnd() * TAU]);
+          }
+        }
+        aisles.push([x + w, tier.top, tier.bot]);
+        x += w + 1;
+      }
+    }
+    let lx = Math.round(-0.35 * SW);
+    while (lx < 1.35 * SW) { lights.push(lx); lx += Math.round(SW * (0.03 + rnd() * 0.055)) + 3; }
+    for (let i = 0; i < 7; i++) {
+      const tier = tiers[rnd() < 0.5 ? 0 : 1];
+      flares.push([Math.round(-0.2 * SW + rnd() * 1.4 * SW), Math.round(tier.top + rnd() * (tier.bot - tier.top) * 0.6), rnd() * TAU]);
+    }
+  }
+  function newDecor(wz) {
+    const side = Math.random() < 0.5 ? -1 : 1, r = Math.random();
+    return { wz, x: side * (5.0 + Math.random() * 9), kind: r < 0.3 ? 'flag' : r < 0.75 ? 'cone' : 'ball', f: Math.random() < 0.5 ? 0 : 1 };
+  }
+  function initDecor() { decor = []; for (let i = 0; i < 22; i++) decor.push(newDecor(dist + Math.random() * FAR)); }
+
+  function reset() {
+    dist = 0; playT = 0; coins = 0; speed = 14; speedMul = 1;
+    lane = 0; fromLane = 0; px = 0; py = 0; vy = 0; slideT = 0; fastFall = false; camX = 0;
+    jumpBuf = 0; stumbleT = 0; wobble = 0;
+    shake = 0; crashT = 0; flash = 0;
+    magnetT = 0; doubleT = 0; sprintT = 0; shield = false; graceT = 0;
+    chantEnd = 0; nextChant = 8; milestone = 0; bestCalled = false; lastRoar = -9;
+    objs = []; coinList = []; pus = []; parts = [];
+    nextRow = 42; prevSafe = 0; lastHudDist = -1;
+    initDecor();
+    $('coins').textContent = '0';
+  }
+
+  // ---------- spawning ----------
+  function wallCovers(l, wz) {
+    return objs.some(o => o.kind === 'wall' && o.lane === l && Math.abs(o.wz - wz) < DIM.wall.d / 2 + 0.8);
+  }
+  function spawnRow(wz) {
+    const safe = clamp(prevSafe + Math.floor(Math.random() * 3) - 1, -1, 1);
+    prevSafe = safe;
+    for (let l = -1; l <= 1; l++) {
+      const r = Math.random(); let kind = null;
+      if (l === safe) { if (r < 0.25) kind = 'crate'; else if (r < 0.4) kind = 'bar'; }
+      else if (r < 0.22) kind = null;
+      else if (r < 0.5) kind = 'crate';
+      else if (r < 0.7) kind = 'bar';
+      else kind = 'wall';
+      if (kind) objs.push({ kind, lane: l, wz: kind === 'wall' ? wz + 2 : wz, dead: false, pend: 0, saved: false, v: Math.random() < 0.5 ? 0 : 1 });
+    }
+    if (Math.random() < 0.7) {
+      for (let i = 0; i < 5; i++) {
+        const cz = wz - 11 + i * 2.2;
+        if (!wallCovers(safe, cz)) coinList.push({ lane: safe, x: safe * LANE, wz: cz, got: false });
+      }
+    }
+    if (playT > 6 && Math.random() < 0.11) {
+      const pz = wz - 14, kinds = Object.keys(PU);
+      if (!wallCovers(safe, pz)) pus.push({ kind: kinds[Math.random() * kinds.length | 0], lane: safe, wz: pz, got: false });
+    }
+  }
+
+  // ---------- input ----------
+  const grounded = () => py <= 0.001 && vy <= 0;
+  function move(d) {
+    if (state !== 'play') return;
+    const n = clamp(lane + d, -1, 1);
+    if (n !== lane) { fromLane = lane; lane = n; sfx.lane(); }
+  }
+  function doJump() { slideT = 0; vy = 10; py = 0.001; jumpBuf = 0; sfx.jump(); }
+  function doSlide() { slideT = 0.62; sfx.slide(); }
+  function jump() {
+    if (state !== 'play') return;
+    for (const o of objs) if (o.pend > 0 && o.kind === 'crate') o.saved = true;
+    if (grounded()) doJump(); else jumpBuf = EASE.buffer;
+  }
+  function slide() {
+    if (state !== 'play') return;
+    for (const o of objs) if (o.pend > 0 && o.kind === 'bar') o.saved = true;
+    jumpBuf = 0;
+    if (!grounded()) { vy = -20; fastFall = true; }
+    else doSlide();
+  }
+  let sx = 0, sy = 0, swiping = false, used = false;
+  const game = $('game');
+  game.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; swiping = true; used = false; });
+  game.addEventListener('pointermove', e => {
+    if (!swiping || used) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.hypot(dx, dy) < 24) return;
+    used = true;
+    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : -1); else if (dy < 0) jump(); else slide();
+  });
+  const endSwipe = () => { swiping = false; };
+  addEventListener('pointerup', endSwipe); addEventListener('pointercancel', endSwipe);
+  addEventListener('keydown', e => {
+    if (e.repeat || state !== 'play') return;
+    const k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') move(-1);
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') move(1);
+    else if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === ' ') jump();
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') slide();
+    else if (k === 'Escape' || k === 'p') pause();
+    else return;
+    e.preventDefault();
+  });
+
+  // ---------- flow ----------
+  function show(id) { ['menu', 'over', 'pause'].forEach(s => { $(s).hidden = s !== id; }); }
+  function start() {
+    audioOn(); sfx.click(); reset(); state = 'play'; show(null); $('hud').hidden = false;
+    whistle(true);
+  }
+  function crash() {
+    state = 'crash'; crashT = 0; shake = 0.5; flash = 1; flashC = RGB.red;
+    sfx.bump(); whistle(true);
+    if (buf.huuu) play('huuu', { vol: 0.4, dur: 2.5, fade: 0.15 });
+    surge = 0;
+  }
+  function gameOver() {
+    state = 'over';
+    const score = Math.floor(dist) + coins * 10;
+    const isBest = score > best;
+    if (isBest) { best = score; try { localStorage.setItem('aslanRunBest', String(best)); } catch (e) {} }
+    $('finalScore').textContent = score.toLocaleString();
+    $('finalDist').textContent = Math.floor(dist).toLocaleString() + ' m';
+    $('finalCoins').textContent = coins;
+    $('finalBest').textContent = best.toLocaleString();
+    $('bestMenu').textContent = best.toLocaleString();
+    $('newBest').hidden = !isBest;
+    $('hud').hidden = true;
+    show('over');
+    $('againBtn').focus({ preventScroll: true });
+  }
+  function pause() { if (state === 'play') { state = 'pause'; show('pause'); } }
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+  $('resumeBtn').addEventListener('click', () => { audioOn(); sfx.click(); state = 'play'; show(null); last = performance.now(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  // ---------- particles and events ----------
+  function burst(x, y, n, c, spread, up) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, v = Math.random() * spread;
+      parts.push({ x, y, vx: Math.cos(a) * v * U0, vy: (Math.sin(a) * v - up) * U0, life: 0.5 + Math.random() * 0.3, max: 0.8, c, r: Math.random() < 0.6 ? 1 : 2 });
+    }
+  }
+  function smash(o) {
+    o.dead = true;
+    const p = project(o.lane * LANE, 1, Math.max(0.5, o.wz - dist));
+    burst(p[0], p[1], 14, Math.random() < 0.5 ? RGB.yellow : RGB.red, 60, 30);
+    sfx.bump();
+    shake = Math.max(shake, 0.18);
+  }
+  function stumble() {
+    stumbleT = EASE.stumble; wobble = 0.5; graceT = 0.4;
+    const back = fromLane; fromLane = lane; lane = back;
+    shake = Math.max(shake, 0.25); flash = 0.35; flashC = RGB.yellow;
+    sfx.bump();
+    if (buf.oehh) play('oehh', { vol: 0.35, dur: 1.8, fade: 0.1 });
+  }
+  // A hit that the player did not save in time: the shield takes it, or it is a red card.
+  function resolve(o) {
+    if (shield) { shield = false; graceT = 1; smash(o); flash = 0.5; flashC = RGB.yellow; call('KALKAN KIRILDI!'); return; }
+    crash();
+  }
+  function powerUp(kind) {
+    if (kind === 'magnet') magnetT = PU.magnet.secs;
+    else if (kind === 'double') doubleT = PU.double.secs;
+    else if (kind === 'sprint') sprintT = PU.sprint.secs;
+    else shield = true;
+    call(PU[kind].label); sfx.power(); roar(0.6);
+  }
+
+  // ---------- update ----------
+  function update(dt) {
+    if (state === 'pause' || state === 'over') { bed(0.06); return; }
+    if (state === 'play') {
+      playT += dt;
+      speedMul += ((sprintT > 0 ? 1.6 : 1) - speedMul) * Math.min(1, dt * 4);
+      speed = (14 + Math.min(26, playT * 0.35)) * speedMul;
+      bed(0.14 + (speed - 14) / 40 * 0.08);
+    } else if (state === 'menu') { speed = 9; bed(0.1); }
+    else if (state === 'crash') {
+      crashT += dt; speed *= Math.pow(0.002, dt);
+      if (crashT > 1.1) gameOver();
+    }
+    dist += speed * dt; runT += dt; animPh += dt * (10 + speed * 0.28);
+
+    px += (lane * LANE - px) * Math.min(1, dt * 14);
+    camX += (px * 0.55 - camX) * Math.min(1, dt * 6);
+    if (py > 0 || vy > 0) {
+      vy -= G * dt; py += vy * dt;
+      if (py <= 0) {
+        py = 0; vy = 0;
+        const g = project(px, 0, 0); burst(g[0], g[1], 5, RGB.grassA, 25, 8);
+        if (fastFall) { fastFall = false; doSlide(); }
+        else if (jumpBuf > 0) doJump();
+      }
+    }
+    jumpBuf = Math.max(0, jumpBuf - dt);
+    slideT = Math.max(0, slideT - dt);
+    if (slideT > 0 && Math.random() < 0.5) { const g = project(px, 0, 0.3); burst(g[0], g[1], 1, RGB.grassA, 20, 10); }
+
+    if (state === 'play') {
+      magnetT = Math.max(0, magnetT - dt); doubleT = Math.max(0, doubleT - dt); graceT = Math.max(0, graceT - dt);
+      stumbleT = Math.max(0, stumbleT - dt); wobble = Math.max(0, wobble - dt);
+      if (sprintT > 0) { sprintT -= dt; if (sprintT <= 0) { sprintT = 0; graceT = 0.8; } }
+
+      while (nextRow < dist + FAR) {
+        spawnRow(nextRow);
+        nextRow += Math.max(16, speed * 0.85) + Math.random() * 6;
+      }
+      for (const o of objs) {
+        if (o.dead || o.saved) continue;
+        if (o.pend > 0) {
+          o.pend -= dt;
+          if (o.pend <= 0) { resolve(o); if (state !== 'play') break; o.dead = true; }
+          continue;
+        }
+        const D = DIM[o.kind], z = o.wz - dist;
+        if (Math.abs(z) > D.d / 2 + EASE.hitDepth) continue;
+        if (Math.abs(o.lane * LANE - px) > D.w / 2 - EASE.hitShrink) continue;
+        if (o.kind === 'crate' && py > D.h - EASE.hurdleClear) continue;
+        if (o.kind === 'bar' && slideT > 0) continue;
+        if (sprintT > 0 || graceT > 0) { smash(o); continue; }
+        const sideHit = Math.abs(px - lane * LANE) > 0.25 && o.lane === lane && o.lane !== fromLane;
+        if (sideHit) {
+          if (stumbleT > 0) { crash(); break; }
+          stumble(); continue;
+        }
+        if (o.kind === 'crate' || o.kind === 'bar') { o.pend = EASE.saveWindow; continue; }
+        resolve(o);
+        if (state !== 'play') break;
+      }
+      if (state === 'play') {
+        const reach = magnetT > 0 ? 16 : 0;
+        for (const c of coinList) {
+          if (c.got) continue;
+          const z = c.wz - dist;
+          if (reach && z < reach && z > -1) c.x += (px - c.x) * Math.min(1, dt * 7);
+          if (Math.abs(z) > (reach ? 1.5 : 0.9) || Math.abs(c.x - px) > 1.0) continue;
+          c.got = true; coins += doubleT > 0 ? 2 : 1;
+          const p = project(c.x, 0.9, z);
+          burst(p[0], p[1], 6, coins % 2 ? RGB.yellow : RGB.red, 40, 15);
+          sfx.star();
+          $('coins').textContent = coins;
+        }
+        for (const u of pus) {
+          if (u.got || Math.abs(u.wz - dist) > 1.0 || Math.abs(u.lane * LANE - px) > 1.1) continue;
+          u.got = true; powerUp(u.kind);
+          const p = project(u.lane * LANE, 1, 0.5); burst(p[0], p[1], 16, RGB.yellow, 60, 30);
+        }
+        const d = Math.floor(dist);
+        if (d !== lastHudDist) { lastHudDist = d; $('dist').textContent = d.toLocaleString(); }
+        if (Math.floor(dist / 250) > milestone) { milestone++; roar(0.8); chant(); nextChant = playT + 25 + Math.random() * 10; }
+        if (playT > nextChant) { chant(); nextChant = playT + 25 + Math.random() * 10; }
+        if (!bestCalled && best > 0 && d + coins * 10 > best) { bestCalled = true; call('REKOR!'); roar(0.8); }
+        updatePuHud();
+      }
+    }
+    objs = objs.filter(o => o.wz - dist > -12);
+    coinList = coinList.filter(c => !c.got && c.wz - dist > -6);
+    pus = pus.filter(u => !u.got && u.wz - dist > -6);
+    for (const dd of decor) if (dd.wz - dist < -CAM_BACK) Object.assign(dd, newDecor(dd.wz + FAR + Math.random() * 10));
+    for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 70 * U0 * dt; }
+    parts = parts.filter(p => p.life > 0);
+    shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt * 2.5); surge = Math.max(0, surge - dt * 0.9);
+    chantAmp += ((runT < chantEnd ? 1 : 0) - chantAmp) * Math.min(1, dt * 3);
+  }
+  const puEls = {};
+  ['magnet', 'shield', 'double', 'sprint'].forEach(k => { puEls[k] = $('pu-' + k); });
+  function updatePuHud() {
+    const v = { magnet: magnetT / PU.magnet.secs, shield: shield ? 1 : 0, double: doubleT / PU.double.secs, sprint: sprintT / PU.sprint.secs };
+    for (const k in v) {
+      const on = v[k] > 0;
+      if (puEls[k].hidden === on) puEls[k].hidden = !on;
+      if (on) puEls[k].style.setProperty('--w', (v[k] * 100).toFixed(1) + '%');
+    }
+  }
+
+  // ---------- draw: the stands (a pixel-art backdrop, drawn small and scaled up) ----------
+  function drawStadium() {
+    ctx = sctx;
+    ctx.fillStyle = HEX.night; ctx.fillRect(0, 0, SW, SHZ + 1);
+    const st = stand, off = Math.round(-camX * 3);
+    ctx.save(); ctx.translate(off, 0);
+    ctx.fillStyle = HEX.black; ctx.fillRect(-SW, 0, 3 * SW, st.roofY);
+    ctx.fillStyle = HEX.boardT; ctx.fillRect(-SW, st.roofY - 1, 3 * SW, 1);
+    ctx.fillStyle = HEX.lamp;
+    for (const l of lights) ctx.fillRect(l, st.roofY, 2, 1);
+    for (const tier of st.tiers) { ctx.fillStyle = HEX.stand; ctx.fillRect(-SW, tier.top, 3 * SW, tier.bot - tier.top); }
+    const pal = [HEX.yellow, HEX.red, HEX.paper, HEX.stand2];
+    const wv = chantAmp, sg = Math.min(1, surge);
+    for (let c = 0; c < 4; c++) {
+      ctx.fillStyle = pal[c];
+      for (const f of fans[c]) {
+        let lift = Math.sin(runT * 2.1 + f[2]) > 0.9 ? 1 : 0;
+        if (wv > 0.05) lift += Math.round(Math.max(0, Math.sin(f[0] * 0.08 - runT * 5)) * 2 * wv);
+        if (sg > 0.05) lift += Math.round(Math.abs(Math.sin(runT * 11 + f[2])) * 2 * sg);
+        ctx.fillRect(f[0], f[1] - lift, 2, 2);
+      }
+    }
+    ctx.fillStyle = HEX.night2;
+    for (const a of aisles) ctx.fillRect(a[0], a[1], 1, a[2] - a[1]);
+    if (surge > 0.05) {
+      for (const fl of flares) {
+        ctx.fillStyle = HEX.flare; ctx.fillRect(fl[0], fl[1], 2, 2);
+        if (Math.sin(runT * 13 + fl[2]) > 0) { ctx.fillStyle = HEX.redD; ctx.fillRect(fl[0] - 1, fl[1] - 3, 4, 2); ctx.fillRect(fl[0], fl[1] - 6, 3, 2); }
+      }
+    }
+    const by = st.tiers[0].bot, bh = st.tiers[1].top - by;
+    ctx.fillStyle = HEX.red; ctx.fillRect(-SW, by, 3 * SW, bh);
+    if (bh >= 5) {
+      const msg = 'CIM BOM BOM · 1905 · SARI-KIRMIZI · ASLAN · ', mw = tw(msg) + 4;
+      for (let x = -SW; x < 2 * SW; x += mw) ptext(msg, x, by + Math.floor((bh - 5) / 2), HEX.yellow);
+    }
+    ctx.restore();
+    ctx.fillStyle = HEX.black; ctx.fillRect(0, SHZ - 7, SW, 8);
+    const led = 'SARI KIRMIZI * 1905 * ASLAN * CIM BOM BOM * ', lw = tw(led) + 4;
+    for (let x = -Math.round((dist * 3) % lw); x < SW; x += lw) ptext(led, x, SHZ - 6, HEX.led);
+    ctx = mctx;
+    ctx.drawImage(sc, 0, 0, SW, SHZ, 0, 0, SW * P, HZ);
+  }
+
+  // ---------- draw: the pitch (full resolution) ----------
+  function drawGround() {
+    ctx.fillStyle = HEX.fog; ctx.fillRect(0, HZ, W, H - HZ);
+    const off = dist % (2 * SEG);
+    const kMax = Math.ceil((FAR + off) / SEG);
+    for (let k = kMax; k >= 0; k--) {
+      let zA = k * SEG - off; const zB = zA + SEG;
+      if (zB <= ZMIN) continue;
+      zA = Math.max(zA, ZMIN);
+      const t = fogAt(zA), par = k % 2;
+      quad([[-30, 0, zA], [30, 0, zA], [30, 0, zB + 0.05], [-30, 0, zB + 0.05]], col(par ? RGB.grassB : RGB.grassA, t));
+      const lc = col(RGB.line, t);
+      for (const lx of [-ROAD_HALF, ROAD_HALF]) quad([[lx - 0.08, 0, zA], [lx + 0.08, 0, zA], [lx + 0.08, 0, zB], [lx - 0.08, 0, zB]], lc);
+      if (!par) for (const lx of [-LANE / 2, LANE / 2]) {
+        quad([[lx - 0.07, 0, zA], [lx + 0.07, 0, zA], [lx + 0.07, 0, zA + SEG * 0.55], [lx - 0.07, 0, zA + SEG * 0.55]], lc);
+      }
+    }
+  }
+  function shadow(x, z, rw) {
+    if (passFade(z) <= 0 || z + CAM_BACK < 0.7) return;
+    const p = project(x, 0, z);
+    ctx.fillStyle = `rgba(0,0,0,${0.28 * (1 - fogAt(z)) * passFade(z)})`;
+    ctx.beginPath(); ctx.ellipse(p[0], p[1], rw * p[2], rw * p[2] * 0.22, 0, 0, TAU); ctx.fill();
+  }
+
+  // ---------- draw: things on the pitch ----------
+  function drawCrate(o, z) { shadow(o.lane * LANE, z, 0.8); billboard(HURDLE, o.lane * LANE, 0, z); }
+  function drawBar(o, z) { shadow(o.lane * LANE, z, 1.0); billboard(CROSSBAR, o.lane * LANE, 0, z); }
+  // A long LED board: the sides and top are flat shapes; the front is pixel art.
+  function drawWall(o, z) {
+    const D = DIM.wall, x = o.lane * LANE;
+    const x0 = x - D.w / 2, x1 = x + D.w / 2, y1 = D.h, z1 = z + D.d / 2;
+    const z0 = Math.max(z - D.d / 2, ZMIN);
+    if (z1 <= ZMIN) return;
+    const t = fogAt(z0), lw = Math.max(1, Math.min(U0, project(x, 0, z0)[2] / ART)), edge = col(RGB.ink, t);
+    if (x0 - camX > 0) quad([[x0, 0, z0], [x0, y1, z0], [x0, y1, z1], [x0, 0, z1]], col(RGB.boardS, t), edge, lw);
+    else if (x1 - camX < 0) quad([[x1, 0, z0], [x1, y1, z0], [x1, y1, z1], [x1, 0, z1]], col(RGB.boardS, t), edge, lw);
+    if (y1 < camH) quad([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], col(RGB.boardT, t), edge, lw);
+    // Once the front of the board has passed the camera, only its sides are left to draw.
+    if (z - D.d / 2 < ZMIN) return;
+    const a = project(x0, 0, z0), b = project(x1, y1, z0);
+    ctx.drawImage(fogged(WALLTEX[o.v], t), Math.round(a[0]), Math.round(b[1]), Math.round(b[0] - a[0]), Math.round(a[1] - b[1]));
+    ctx.strokeStyle = edge; ctx.lineWidth = lw; ctx.strokeRect(Math.round(a[0]), Math.round(b[1]), Math.round(b[0] - a[0]), Math.round(a[1] - b[1]));
+  }
+  function drawCoin(c, z) {
+    const spin = Math.max(0.15, Math.abs(Math.cos(runT * 3.5 + c.wz * 0.7)));
+    billboard(STAR, c.x, 0.65 + Math.sin(runT * 4 + c.wz) * 0.07, z, spin);
+  }
+  function drawPU(u, z) {
+    shadow(u.lane * LANE, z, 0.35);
+    billboard(TOKENS[u.kind], u.lane * LANE, 0.6 + Math.sin(runT * 3 + u.wz) * 0.1, z);
+  }
+  function drawMarker(m, z) {
+    if (z + CAM_BACK < 0.7) return;
+    const t = fogAt(z);
+    quad([[-ROAD_HALF, 0, z - 0.08], [ROAD_HALF, 0, z - 0.08], [ROAD_HALF, 0, z + 0.08], [-ROAD_HALF, 0, z + 0.08]], col(RGB.line, t));
+    billboard(markSprite(m), ROAD_HALF + 1.6, 0, z);
+  }
+  function drawDecor(d, z) {
+    if (d.kind === 'flag') billboard(FLAGS[d.f], d.x, 0, z);
+    else if (d.kind === 'cone') billboard(CONE, d.x, 0, z);
+    else billboard(BALL, d.x, 0, z);
+  }
+
+  // ---------- draw: the runner ----------
+  function drawPlayer() {
+    const g = project(px, 0, 0), u = g[2] / ART;
+    const feet = Math.round(g[1] - py * g[2]);
+    let x = Math.round(g[0]);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(g[0], g[1], 0.45 * g[2] * (1 - py * 0.15), 0.1 * g[2], 0, 0, TAU); ctx.fill();
+    if (sprintT > 0) {
+      ctx.fillStyle = HEX.yellow;
+      for (let i = 0; i < 6; i++) {
+        const lx = x + Math.round((Math.random() - 0.5) * 16 * u), ly = feet - Math.round(Math.random() * 20 * u);
+        ctx.fillRect(lx, ly, Math.ceil(u), Math.round((4 + Math.random() * 6) * u));
+      }
+    }
+    if (wobble > 0) x += Math.round(Math.sin(runT * 45) * u);
+    const blink = (graceT > 0 || stumbleT > EASE.stumble - 0.6) && state === 'play' && Math.floor(runT * 16) % 2 === 0;
+    let spr;
+    if (state === 'crash' || state === 'over' || py > 0.01) spr = AIR;
+    else if (slideT > 0) spr = SLIDE[Math.floor(animPh / 2) % 2];
+    else spr = RUN[Math.floor(animPh / (Math.PI / 2)) % 4];
+    const w = Math.round(spr.width * u), h = Math.round(spr.height * u);
+    if (!blink) {
+      ctx.save();
+      if (state === 'crash' || state === 'over') {
+        ctx.translate(x, feet); ctx.rotate(Math.min(1, crashT * 3) * Math.PI / 2);
+        ctx.drawImage(spr, -w / 2, -h + u, w, h);
+      } else ctx.drawImage(spr, x - w / 2, feet - h + u, w, h);
+      ctx.restore();
+    }
+    const cy = feet - 12 * u, dot = Math.ceil(u);
+    if (shield) {
+      ctx.fillStyle = HEX.yellow;
+      for (let i = 0; i < 18; i++) {
+        const a = i / 18 * TAU + runT * 2;
+        ctx.fillRect(Math.round(x + Math.cos(a) * 11 * u), Math.round(cy + Math.sin(a) * 15 * u), dot, dot);
+      }
+    }
+    if (magnetT > 0 && Math.floor(runT * 6) % 2 === 0) {
+      ctx.fillStyle = HEX.red;
+      for (let i = 0; i < 9; i++) {
+        const a = -Math.PI * 0.85 + i / 8 * Math.PI * 0.7;
+        ctx.fillRect(Math.round(x + Math.cos(a) * 15 * u), Math.round(cy + Math.sin(a) * 18 * u), dot, dot);
+      }
+    }
+  }
+
+  // ---------- frame ----------
+  function draw() {
+    ctx = mctx;
+    ctx.save();
+    if (shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * shake * 8 * U0), Math.round((Math.random() - 0.5) * shake * 8 * U0));
+    drawStadium(); drawGround();
+    const list = [];
+    for (const d of decor) { const z = d.wz - dist; if (z < FAR + 5) list.push([z, drawDecor, d]); }
+    for (let m = Math.max(100, Math.ceil((dist - CAM_BACK) / 100) * 100); m - dist < FAR; m += 100) list.push([m - dist, drawMarker, m]);
+    for (const o of objs) {
+      if (o.dead) continue;
+      const z = o.wz - dist;
+      if (z < FAR + 5) list.push([z + (o.kind === 'wall' ? DIM.wall.d / 2 : 0), o.kind === 'crate' ? drawCrate : o.kind === 'bar' ? drawBar : drawWall, o, z]);
+    }
+    for (const c of coinList) { const z = c.wz - dist; if (z < FAR) list.push([z, drawCoin, c]); }
+    for (const u of pus) { const z = u.wz - dist; if (z < FAR) list.push([z, drawPU, u]); }
+    list.push([0.01, drawPlayer, null]);
+    list.sort((a, b) => b[0] - a[0]);
+    for (const it of list) it[1](it[2], it[3] !== undefined ? it[3] : it[0]);
+    for (const p of parts) {
+      ctx.fillStyle = col(p.c, 0, Math.min(1, p.life / p.max * 1.5));
+      const s = Math.ceil(p.r * U0);
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+    }
+    ctx.restore();
+    if (flash > 0) { ctx.fillStyle = col(flashC, 0, flash * 0.4); ctx.fillRect(0, 0, W, H); }
+  }
+
+  // The loop asks for the next frame first, so one bad frame can never stop the game.
+  let last = performance.now(), errShown = false;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, Math.max(0, (t - last) / 1000)); last = t;
+    if (W < 4 || H < 4) { resize(); if (W < 4 || H < 4) return; }
+    try { update(dt); draw(); }
+    catch (e) {
+      ctx = mctx;
+      if (!errShown) {
+        errShown = true;
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);z-index:99;background:#17100f;color:#ffb81c;font:12px ui-monospace,Menlo,monospace;padding:8px;border:1px solid #ffb81c;white-space:pre-wrap;pointer-events:none';
+        el.textContent = 'Game error (please send a screenshot): ' + (e && e.message ? e.message : e);
+        document.body.appendChild(el);
+      }
+    }
+  }
+  addEventListener('resize', resize);
+  addEventListener('orientationchange', () => setTimeout(resize, 200));
+  if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(document.documentElement);
+  resize(); initDecor();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
