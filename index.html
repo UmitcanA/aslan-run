@@ -1070,17 +1070,19 @@ h2 { font-size: clamp(36px, 11vw, 46px); line-height: 0.9; color: var(--red); }
   function drawCrate(o, z) { shadow(o.lane * LANE, z, 0.8); billboard(HURDLE, o.lane * LANE, 0, z); }
   function drawBar(o, z) { shadow(o.lane * LANE, z, 1.0); billboard(CROSSBAR, o.lane * LANE, 0, z); }
   // A long LED board: the sides and top are flat shapes; the front is pixel art.
+  const WALL_CUT = -0.5;
   function drawWall(o, z) {
     const D = DIM.wall, x = o.lane * LANE;
     const x0 = x - D.w / 2, x1 = x + D.w / 2, y1 = D.h, z1 = z + D.d / 2;
-    const z0 = Math.max(z - D.d / 2, ZMIN);
-    if (z1 <= ZMIN) return;
+    // A board stops just behind the runner. Past that point its top would sweep over the grass toward the camera.
+    const z0 = Math.max(z - D.d / 2, WALL_CUT);
+    if (z1 <= WALL_CUT) return;
     const t = fogAt(z0), lw = Math.max(1, Math.min(U0, project(x, 0, z0)[2] / ART)), edge = col(RGB.ink, t);
     if (x0 - camX > 0) quad([[x0, 0, z0], [x0, y1, z0], [x0, y1, z1], [x0, 0, z1]], col(RGB.boardS, t), edge, lw);
     else if (x1 - camX < 0) quad([[x1, 0, z0], [x1, y1, z0], [x1, y1, z1], [x1, 0, z1]], col(RGB.boardS, t), edge, lw);
     if (y1 < camH) quad([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], col(RGB.boardT, t), edge, lw);
-    // Once the front of the board has passed the camera, only its sides are left to draw.
-    if (z - D.d / 2 < ZMIN) return;
+    // Once the front has passed the cut, the cut end shows as a plain dark face.
+    if (z - D.d / 2 < WALL_CUT) { quad([[x0, 0, z0], [x1, 0, z0], [x1, y1, z0], [x0, y1, z0]], col(RGB.boardS, t), edge, lw); return; }
     const a = project(x0, 0, z0), b = project(x1, y1, z0);
     ctx.drawImage(fogged(WALLTEX[o.v], t), Math.round(a[0]), Math.round(b[1]), Math.round(b[0] - a[0]), Math.round(a[1] - b[1]));
     ctx.strokeStyle = edge; ctx.lineWidth = lw; ctx.strokeRect(Math.round(a[0]), Math.round(b[1]), Math.round(b[0] - a[0]), Math.round(a[1] - b[1]));
@@ -1163,12 +1165,13 @@ h2 { font-size: clamp(36px, 11vw, 46px); line-height: 0.9; color: var(--red); }
     for (const o of objs) {
       if (o.dead) continue;
       const z = o.wz - dist;
-      if (z < FAR + 5) list.push([z + (o.kind === 'wall' ? DIM.wall.d / 2 : 0), o.kind === 'crate' ? drawCrate : o.kind === 'bar' ? drawBar : drawWall, o, z]);
+      if (z < FAR + 5) list.push([z + (o.kind === 'wall' ? DIM.wall.d / 2 : 0), o.kind === 'crate' ? drawCrate : o.kind === 'bar' ? drawBar : drawWall, o, z, Math.abs(o.lane * LANE - camX)]);
     }
     for (const c of coinList) { const z = c.wz - dist; if (z < FAR) list.push([z, drawCoin, c]); }
     for (const u of pus) { const z = u.wz - dist; if (z < FAR) list.push([z, drawPU, u]); }
     list.push([0.01, drawPlayer, null]);
-    list.sort((a, b) => b[0] - a[0]);
+    // Far things first. At the same distance, things farther to the side first, so side-by-side boards cover each other correctly.
+    list.sort((a, b) => b[0] - a[0] || (b[4] || 0) - (a[4] || 0));
     for (const it of list) it[1](it[2], it[3] !== undefined ? it[3] : it[0]);
     for (const p of parts) {
       ctx.fillStyle = col(p.c, 0, Math.min(1, p.life / p.max * 1.5));
