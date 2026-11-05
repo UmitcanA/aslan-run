@@ -1,6 +1,6 @@
 # Aslan Run
 
-**[▶ Play Aslan Run](https://umitcana.github.io/aslan-run/)**
+**[▶ Play Aslan Run](https://aslan-run.netlify.app)**
 
 A fan-made, three-lane endless runner in yellow and red. Play it in the browser on a phone or a computer.
 
